@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/djintx/workspace/sylar/build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

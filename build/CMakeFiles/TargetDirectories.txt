@@ -1,0 +1,8 @@
+/home/djintx/workspace/sylar/build/CMakeFiles/sylar.dir
+/home/djintx/workspace/sylar/build/CMakeFiles/test_log.dir
+/home/djintx/workspace/sylar/build/CMakeFiles/test_config.dir
+/home/djintx/workspace/sylar/build/CMakeFiles/test_thread.dir
+/home/djintx/workspace/sylar/build/CMakeFiles/test_fiber.dir
+/home/djintx/workspace/sylar/build/CMakeFiles/test_scheduler.dir
+/home/djintx/workspace/sylar/build/CMakeFiles/edit_cache.dir
+/home/djintx/workspace/sylar/build/CMakeFiles/rebuild_cache.dir
