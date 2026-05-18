@@ -44,12 +44,13 @@ void hook_init() {
     if(is_inited) {
         return;
     }
-#define XX(name) name ## _f = (name ## _fun)dlsym(RTLD_NEXT, #name);
+#define XX(name) name ## _f = (name ## _fun)dlsym(RTLD_NEXT, #name);// 保存系统函数的指针xxx_f
     HOOK_FUN(XX);
 #undef XX
 }
 
 static uint64_t s_connect_timeout = -1;
+// 初始化需要hook的函数，初始化连接超时时间，监听配置变化
 struct _HookIniter {
     _HookIniter() {
         hook_init();
@@ -108,6 +109,7 @@ retry:
     while(n == -1 && errno == EINTR) {
         n = fun(fd, std::forward<Args>(args)...);
     }
+    // 这是没读到数据，在epoll注册，然后让出cpu，如果读到了数据，直接return n了
     if(n == -1 && errno == EAGAIN) {
         sylar::IOManager* iom = sylar::IOManager::GetThis();
         sylar::Timer::ptr timer;
@@ -123,7 +125,7 @@ retry:
                 iom->cancelEvent(fd, (sylar::IOManager::Event)(event));
             }, winfo);
         }
-
+        // 往epoll注册时间，然后当前协程陷入睡眠
         int rt = iom->addEvent(fd, (sylar::IOManager::Event)(event));
         if(SYLAR_UNLIKELY(rt)) {
             SYLAR_LOG_ERROR(g_logger) << hook_fun_name << " addEvent("
@@ -134,14 +136,14 @@ retry:
             return -1;
         } else {
             sylar::Fiber::YieldToHold();
-            if(timer) {
+            if(timer) {//先把之前的超时定时器取消了
                 timer->cancel();
             }
-            if(tinfo->cancelled) {
+            if(tinfo->cancelled) {//如果是被超时定时器唤醒，读取失败
                 errno = tinfo->cancelled;
                 return -1;
             }
-            goto retry;
+            goto retry; // 这里被唤醒后重新尝试读数据看能否读到
         }
     }
     
@@ -161,6 +163,9 @@ unsigned int sleep(unsigned int seconds) {
 
     sylar::Fiber::ptr fiber = sylar::Fiber::GetThis();
     sylar::IOManager* iom = sylar::IOManager::GetThis();
+    // (sylar::Fiber::ptr, int thread)指定版本
+    // iom，指定对象，即函数的this指针
+    // 第一个参数fiber
     iom->addTimer(seconds * 1000, std::bind((void(sylar::Scheduler::*)
             (sylar::Fiber::ptr, int thread))&sylar::IOManager::schedule
             ,iom, fiber, -1));
@@ -196,6 +201,7 @@ int nanosleep(const struct timespec *req, struct timespec *rem) {
     return 0;
 }
 
+// FdCtx::init默认设置为非阻塞，通过hook创建的socket肯定也是非阻塞的
 int socket(int domain, int type, int protocol) {
     if(!sylar::t_hook_enable) {
         return socket_f(domain, type, protocol);
@@ -204,7 +210,8 @@ int socket(int domain, int type, int protocol) {
     if(fd == -1) {
         return fd;
     }
-    sylar::FdMgr::GetInstance()->get(fd, true);
+    // 在协程模型中，绝对不允许任何一个 Socket 是阻塞模式的。如果一个 Socket 是阻塞的，当协程调用 read/write 时，整个底层系统线程就会被卡死，调度器直接瘫痪。 所以，通过 Hook socket() 函数，并在刚创建出 fd 时立刻调用 get(fd, true)，框架在开发者毫无察觉的情况下，偷偷地把所有新创建的 Socket 全部变成了非阻塞模式。
+    sylar::FdMgr::GetInstance()->get(fd, true);//占坑
     return fd;
 }
 
@@ -221,7 +228,7 @@ int connect_with_timeout(int fd, const struct sockaddr* addr, socklen_t addrlen,
     if(!ctx->isSocket()) {
         return connect_f(fd, addr, addrlen);
     }
-
+    // socket本身是非阻塞的，直接调用系统原生函数
     if(ctx->getUserNonblock()) {
         return connect_f(fd, addr, addrlen);
     }
@@ -235,6 +242,7 @@ int connect_with_timeout(int fd, const struct sockaddr* addr, socklen_t addrlen,
 
     sylar::IOManager* iom = sylar::IOManager::GetThis();
     sylar::Timer::ptr timer;
+    // 保证超时时间到了后，回调仍然能够调用
     std::shared_ptr<timer_info> tinfo(new timer_info);
     std::weak_ptr<timer_info> winfo(tinfo);
 
