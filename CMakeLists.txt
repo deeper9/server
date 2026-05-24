@@ -14,6 +14,10 @@ find_package(Boost REQUIRED)
 if(Boost_FOUND)
     include_directories(${Boost_INCLUDE_DIRS})
 endif()
+find_package(OpenSSL REQUIRED)
+if(OPENSSL_FOUND)
+    include_directories(${OPENSSL_INCLUDE_DIR})
+endif()
 
 set(LIB_SRC
     sylar/config.cpp
@@ -28,6 +32,10 @@ set(LIB_SRC
     sylar/iomanager.cpp
     sylar/scheduler.cpp
     sylar/timer.cpp
+    sylar/address.cpp
+    sylar/bytearray.cpp
+    sylar/tcp_server.cpp
+    sylar/socket.cpp
     )
 
 add_library(sylar SHARED ${LIB_SRC})
@@ -37,6 +45,7 @@ set(LIBS
     sylar
     pthread
     yaml-cpp
+    ${OPENSSL_LIBRARIES}
 )
 option(BUILD_TEST "ON for complile test" ON)
 if(BUILD_TEST)
