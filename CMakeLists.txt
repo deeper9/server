@@ -9,6 +9,7 @@ set(CMAKE_CXX_FLAGS "$ENV{CXXFLAGS} -rdynamic -O3 -fPIC -ggdb -std=c++11 -Wall -
 set(CMAKE_C_FLAGS "$ENV{CXXFLAGS} -rdynamic -O3 -fPIC -ggdb -std=c11 -Wall -Wno-deprecated -Werror -Wno-unused-function -Wno-builtin-macro-redefined -Wno-deprecated-declarations")
 
 include_directories(.)
+include_directories(/usr/include/jsoncpp)
 
 find_package(Boost REQUIRED)
 if(Boost_FOUND)
@@ -17,6 +18,10 @@ endif()
 find_package(OpenSSL REQUIRED)
 if(OPENSSL_FOUND)
     include_directories(${OPENSSL_INCLUDE_DIR})
+endif()
+find_package(Protobuf)
+if(Protobuf_FOUND)
+    include_directories(${Protobuf_INCLUDE_DIRS})
 endif()
 
 set(LIB_SRC
@@ -36,6 +41,13 @@ set(LIB_SRC
     sylar/bytearray.cpp
     sylar/tcp_server.cpp
     sylar/socket.cpp
+    sylar/daemon.cpp
+    sylar/stream.cpp
+    sylar/zk_client.cpp
+    sylar/http/http.cpp
+    sylar/util/crypto_util.cpp
+    sylar/util/hash_util.cpp
+    sylar/util/json_util.cpp
     )
 
 add_library(sylar SHARED ${LIB_SRC})
@@ -45,7 +57,10 @@ set(LIBS
     sylar
     pthread
     yaml-cpp
+    jsoncpp
     ${OPENSSL_LIBRARIES}
+    ${PROTOBUF_LIBRARIES}
+    zookeeper_mt
 )
 option(BUILD_TEST "ON for complile test" ON)
 if(BUILD_TEST)
@@ -56,6 +71,13 @@ sylar_add_executable(test_fiber "tests/test_fiber.cpp" sylar "${LIBS}")
 sylar_add_executable(test_scheduler "tests/test_scheduler.cpp" sylar "${LIBS}")
 sylar_add_executable(test_iomanager "tests/test_iomanager.cpp" sylar "${LIBS}")
 sylar_add_executable(test_hook "tests/test_hook.cpp" sylar "${LIBS}")
+sylar_add_executable(test_bytearray "tests/test_bytearray.cpp" sylar "${LIBS}")
+sylar_add_executable(test_daemon "tests/test_daemon.cpp" sylar "${LIBS}")
+sylar_add_executable(test_tcp_server "tests/test_tcp_server.cpp" sylar "${LIBS}")
+sylar_add_executable(echo_server "sylar/echo/echo_server.cpp" sylar "${LIBS}")
+sylar_add_executable(echo_server_udp "sylar/echo/echo_server_udp.cpp" sylar "${LIBS}")
+sylar_add_executable(echo_client_udp "sylar/echo/echo_client_udp.cpp" sylar "${LIBS}")
+sylar_add_executable(test_zookeeper "tests/test_zookeeper.cpp" sylar "${LIBS}")
 endif()
 
 SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
